@@ -21,6 +21,8 @@ label{display:block;color:#888;font-size:13px;text-transform:uppercase;letter-sp
 .btn-submit:hover{background:#b71c1c}
 .btn-copy{background:#2e7d32;color:#fff}
 .btn-copy:hover{background:#1b5e20}
+.btn-clear{background:#e65100;color:#fff}
+.btn-clear:hover{background:#bf360c}
 .btn-row{display:flex;gap:8px}
 .btn-row .btn{flex:1}
 .code-display{background:#000;border-radius:12px;padding:24px;text-align:center;margin-bottom:12px;border:2px solid #333}
@@ -46,6 +48,7 @@ label{display:block;color:#888;font-size:13px;text-transform:uppercase;letter-sp
     </div>
     <div class="btn-row">
       <button class="btn" id="pasteBtn">Paste</button>
+      <button class="btn btn-clear" id="clearBtn">Clear</button>
       <button class="btn btn-submit" id="submitBtn">Submit</button>
     </div>
   </div>
@@ -64,6 +67,7 @@ label{display:block;color:#888;font-size:13px;text-transform:uppercase;letter-sp
 <script>
 const secretInput = document.getElementById('secretInput');
 const pasteBtn = document.getElementById('pasteBtn');
+const clearBtn = document.getElementById('clearBtn');
 const submitBtn = document.getElementById('submitBtn');
 const codeDisplay = document.getElementById('codeDisplay');
 const copyBtn = document.getElementById('copyBtn');
@@ -137,6 +141,12 @@ pasteBtn.addEventListener('click', async () => {
   } catch {
     showToast('Unable to read clipboard');
   }
+});
+
+clearBtn.addEventListener('click', () => {
+  secretInput.value = '';
+  secretInput.focus();
+  showToast('Cleared');
 });
 
 submitBtn.addEventListener('click', async () => {

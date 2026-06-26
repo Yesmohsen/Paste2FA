@@ -29,7 +29,10 @@ label{display:block;color:#888;font-size:13px;text-transform:uppercase;letter-sp
 .code-display:hover{border-color:#fff}
 .code-display .digits{font-family:'SF Mono','Fira Code','Courier New',monospace;font-size:52px;font-weight:700;color:#fff;letter-spacing:8px}
 .code-display .digits.placeholder{color:#555;font-size:20px;letter-spacing:1px;font-weight:400}
-.copy-btn{width:100%}
+.timer{margin-top:16px}
+.timer-text{color:#888;font-size:13px;margin-bottom:6px}
+.timer-bar{height:3px;background:#333;border-radius:3px;overflow:hidden}
+.timer-bar-fill{height:100%;background:#d32f2f;border-radius:3px;transition:width 1s linear}
 .toast{position:fixed;bottom:30px;left:50%;transform:translateX(-50%);background:#333;color:#fff;padding:12px 24px;border-radius:8px;font-size:14px;font-weight:600;opacity:0;transition:opacity .3s;pointer-events:none;border:1px solid #555}
 .toast.show{opacity:1}
 </style>
@@ -60,8 +63,14 @@ label{display:block;color:#888;font-size:13px;text-transform:uppercase;letter-sp
     <label>2FA Code</label>
     <div class="code-display">
       <div class="digits placeholder" id="codeDisplay">Click Submit to generate</div>
+      <div class="timer" id="timer" style="display:none">
+        <div class="timer-text" id="timerText">Refreshes in 30s</div>
+        <div class="timer-bar">
+          <div class="timer-bar-fill" id="timerBarFill"></div>
+        </div>
+      </div>
     </div>
-    <button class="btn copy-btn btn-copy" id="copyBtn">Copy</button>
+    <div style="text-align:center;color:#555;font-size:13px">Click the code to copy</div>
   </div>
 </div>
 
@@ -73,15 +82,57 @@ const pasteBtn = document.getElementById('pasteBtn');
 const clearBtn = document.getElementById('clearBtn');
 const submitBtn = document.getElementById('submitBtn');
 const codeDisplay = document.getElementById('codeDisplay');
-const copyBtn = document.getElementById('copyBtn');
 const toast = document.getElementById('toast');
 
 let currentCode = '';
+let secret = '';
+let timerInterval = null;
 
 function showToast(msg) {
   toast.textContent = msg;
   toast.classList.add('show');
   setTimeout(() => toast.classList.remove('show'), 2000);
+}
+
+function startTimer() {
+  const timerDiv = document.getElementById('timer');
+  const timerText = document.getElementById('timerText');
+  const timerBarFill = document.getElementById('timerBarFill');
+  timerDiv.style.display = 'block';
+
+  let remaining = 30 - (Math.floor(Date.now() / 1000) % 30);
+
+  async function tick() {
+    remaining--;
+    timerText.textContent = `Refreshes in ${remaining}s`;
+    timerBarFill.style.width = `${(remaining / 30) * 100}%`;
+
+    if (remaining <= 0) {
+      timerText.textContent = 'Refreshes in 30s';
+      timerBarFill.style.width = '100%';
+      remaining = 30;
+
+      if (secret) {
+        try {
+          const code = await generateTOTP(secret);
+          currentCode = code;
+          codeDisplay.textContent = code.slice(0, 3) + ' ' + code.slice(3);
+          codeDisplay.className = 'digits';
+        } catch {}
+      }
+    }
+  }
+
+  clearInterval(timerInterval);
+  timerInterval = setInterval(tick, 1000);
+  tick();
+}
+
+function stopTimer() {
+  clearInterval(timerInterval);
+  timerInterval = null;
+  const timerDiv = document.getElementById('timer');
+  if (timerDiv) timerDiv.style.display = 'none';
 }
 
 // Base32 decode
@@ -148,16 +199,22 @@ pasteBtn.addEventListener('click', async () => {
 
 clearBtn.addEventListener('click', () => {
   secretInput.value = '';
+  secret = '';
+  currentCode = '';
   secretInput.focus();
+  stopTimer();
+  codeDisplay.textContent = 'Click Submit to generate';
+  codeDisplay.className = 'digits placeholder';
   showToast('Cleared');
 });
 
 submitBtn.addEventListener('click', async () => {
-  const secret = secretInput.value.trim();
-  if (!secret) {
+  const s = secretInput.value.trim();
+  if (!s) {
     showToast('Please enter a secret key');
     return;
   }
+  secret = s;
   submitBtn.textContent = 'Generating...';
   submitBtn.disabled = true;
   try {
@@ -166,10 +223,13 @@ submitBtn.addEventListener('click', async () => {
     codeDisplay.textContent = code.slice(0, 3) + ' ' + code.slice(3);
     codeDisplay.className = 'digits';
     showToast('Code generated');
+    startTimer();
   } catch {
     codeDisplay.textContent = 'Invalid secret';
     codeDisplay.className = 'digits placeholder';
     showToast('Invalid secret key');
+    secret = '';
+    stopTimer();
   }
   submitBtn.textContent = 'Submit';
   submitBtn.disabled = false;
@@ -185,18 +245,6 @@ codeDisplay.addEventListener('click', async () => {
   }
 });
 
-copyBtn.addEventListener('click', async () => {
-  if (!currentCode) {
-    showToast('No code to copy');
-    return;
-  }
-  try {
-    await navigator.clipboard.writeText(currentCode);
-    showToast('Copied!');
-  } catch {
-    showToast('Unable to copy');
-  }
-});
 </script>
 </body>
 </html>

@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Paste2FA</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#000;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
+.container{width:100%;max-width:440px}
+h1{text-align:center;color:#fff;font-size:28px;margin-bottom:32px;letter-spacing:1px}
+.card{background:#111;border-radius:16px;padding:28px;margin-bottom:20px;border:1px solid #333}
+label{display:block;color:#888;font-size:13px;text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;font-weight:600}
+.input-row{display:flex;gap:8px;margin-bottom:12px}
+.input-row input{flex:1;padding:14px;border:2px solid #333;border-radius:10px;background:#000;color:#eee;font-size:15px;outline:none;transition:border-color .2s}
+.input-row input:focus{border-color:#fff}
+.input-row input::placeholder{color:#555}
+.btn{background:#222;color:#ccc;border:none;border-radius:10px;padding:14px 18px;cursor:pointer;font-size:14px;font-weight:600;transition:all .2s;white-space:nowrap}
+.btn:hover{background:#333;color:#fff}
+.btn-submit{background:#d32f2f;color:#fff}
+.btn-submit:hover{background:#b71c1c}
+.btn-copy{background:#2e7d32;color:#fff}
+.btn-copy:hover{background:#1b5e20}
+.btn-row{display:flex;gap:8px}
+.btn-row .btn{flex:1}
+.code-display{background:#000;border-radius:12px;padding:24px;text-align:center;margin-bottom:12px;border:2px solid #333}
+.code-display .digits{font-family:'SF Mono','Fira Code','Courier New',monospace;font-size:52px;font-weight:700;color:#fff;letter-spacing:8px}
+.code-display .digits.placeholder{color:#555;font-size:20px;letter-spacing:1px;font-weight:400}
+.copy-btn{width:100%}
+.toast{position:fixed;bottom:30px;left:50%;transform:translateX(-50%);background:#333;color:#fff;padding:12px 24px;border-radius:8px;font-size:14px;font-weight:600;opacity:0;transition:opacity .3s;pointer-events:none;border:1px solid #555}
+.toast.show{opacity:1}
+</style>
+</head>
+<body>
+
+<div class="container">
+  <div style="text-align:center;margin-bottom:24px">
+    <span style="color:#888;font-size:15px">⭐️ Star this <a href="https://github.com/Yesmohsen/Paste2FA" target="_blank" style="color:#888;text-decoration:underline;transition:color .2s" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='#888'">Project</a> on GitHub</span>
+  </div>
+  <h1>Paste2FA</h1>
+
+  <div class="card">
+    <label>Secret Key</label>
+    <div class="input-row">
+      <input type="text" id="secretInput" placeholder="Paste your Base32 secret here" spellcheck="false" autocomplete="off">
+    </div>
+    <div class="btn-row">
+      <button class="btn" id="pasteBtn">Paste</button>
+      <button class="btn btn-submit" id="submitBtn">Submit</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <label>2FA Code</label>
+    <div class="code-display">
+      <div class="digits placeholder" id="codeDisplay">Click Submit to generate</div>
+    </div>
+    <button class="btn copy-btn btn-copy" id="copyBtn">Copy</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const secretInput = document.getElementById('secretInput');
+const pasteBtn = document.getElementById('pasteBtn');
+const submitBtn = document.getElementById('submitBtn');
+const codeDisplay = document.getElementById('codeDisplay');
+const copyBtn = document.getElementById('copyBtn');
+const toast = document.getElementById('toast');
+
+let currentCode = '';
+
+function showToast(msg) {
+  toast.textContent = msg;
+  toast.classList.add('show');
+  setTimeout(() => toast.classList.remove('show'), 2000);
+}
+
+// Base32 decode
+function base32Decode(str) {
+  const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+  str = str.replace(/\s/g, '').replace(/=+$/, '').toUpperCase();
+  const bytes = [];
+  let bits = 0, value = 0;
+  for (const ch of str) {
+    const idx = alphabet.indexOf(ch);
+    if (idx === -1) continue;
+    value = (value << 5) | idx;
+    bits += 5;
+    if (bits >= 8) {
+      bytes.push((value >> (bits - 8)) & 0xff);
+      bits -= 8;
+    }
+  }
+  return new Uint8Array(bytes);
+}
+
+// Generate TOTP (RFC 6238)
+async function generateTOTP(secret) {
+  const keyBytes = base32Decode(secret);
+  if (keyBytes.length === 0) throw new Error('Invalid secret');
+
+  const epoch = Math.floor(Date.now() / 1000);
+  const counter = Math.floor(epoch / 30);
+
+  const counterBuf = new ArrayBuffer(8);
+  const counterView = new DataView(counterBuf);
+  counterView.setBigUint64(0, BigInt(counter), false);
+
+  const cryptoKey = await crypto.subtle.importKey(
+    'raw', keyBytes, { name: 'HMAC', hash: 'SHA-1' },
+    false, ['sign']
+  );
+
+  const hmac = await crypto.subtle.sign('HMAC', cryptoKey, counterBuf);
+  const hmacBytes = new Uint8Array(hmac);
+
+  const offset = hmacBytes[hmacBytes.length - 1] & 0xf;
+  const code = ((hmacBytes[offset] & 0x7f) << 24) |
+               (hmacBytes[offset + 1] << 16) |
+               (hmacBytes[offset + 2] << 8) |
+               hmacBytes[offset + 3];
+
+  return String(code % 1000000).padStart(6, ' ');
+}
+
+secretInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') submitBtn.click();
+});
+
+pasteBtn.addEventListener('click', async () => {
+  try {
+    const text = await navigator.clipboard.readText();
+    secretInput.value = text;
+    showToast('Pasted from clipboard');
+  } catch {
+    showToast('Unable to read clipboard');
+  }
+});
+
+submitBtn.addEventListener('click', async () => {
+  const secret = secretInput.value.trim();
+  if (!secret) {
+    showToast('Please enter a secret key');
+    return;
+  }
+  submitBtn.textContent = 'Generating...';
+  submitBtn.disabled = true;
+  try {
+    const code = await generateTOTP(secret);
+    currentCode = code;
+    codeDisplay.textContent = code.slice(0, 3) + ' ' + code.slice(3);
+    codeDisplay.className = 'digits';
+    showToast('Code generated');
+  } catch {
+    codeDisplay.textContent = 'Invalid secret';
+    codeDisplay.className = 'digits placeholder';
+    showToast('Invalid secret key');
+  }
+  submitBtn.textContent = 'Submit';
+  submitBtn.disabled = false;
+});
+
+copyBtn.addEventListener('click', async () => {
+  if (!currentCode) {
+    showToast('No code to copy');
+    return;
+  }
+  try {
+    await navigator.clipboard.writeText(currentCode);
+    showToast('Copied!');
+  } catch {
+    showToast('Unable to copy');
+  }
+});
+</script>
+</body>
+</html>

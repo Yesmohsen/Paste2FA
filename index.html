@@ -25,7 +25,8 @@ label{display:block;color:#888;font-size:13px;text-transform:uppercase;letter-sp
 .btn-clear:hover{background:#ccc}
 .btn-row{display:flex;gap:8px}
 .btn-row .btn{flex:1}
-.code-display{background:#000;border-radius:12px;padding:24px;text-align:center;margin-bottom:12px;border:2px solid #333}
+.code-display{background:#000;border-radius:12px;padding:24px;text-align:center;margin-bottom:12px;border:2px solid #333;cursor:pointer;transition:border-color .2s}
+.code-display:hover{border-color:#fff}
 .code-display .digits{font-family:'SF Mono','Fira Code','Courier New',monospace;font-size:52px;font-weight:700;color:#fff;letter-spacing:8px}
 .code-display .digits.placeholder{color:#555;font-size:20px;letter-spacing:1px;font-weight:400}
 .copy-btn{width:100%}
@@ -172,6 +173,16 @@ submitBtn.addEventListener('click', async () => {
   }
   submitBtn.textContent = 'Submit';
   submitBtn.disabled = false;
+});
+
+codeDisplay.addEventListener('click', async () => {
+  if (!currentCode) return;
+  try {
+    await navigator.clipboard.writeText(currentCode);
+    showToast('Copied!');
+  } catch {
+    showToast('Unable to copy');
+  }
 });
 
 copyBtn.addEventListener('click', async () => {

@@ -17,6 +17,10 @@
   <a href="https://github.com/Yesmohsen/Paste2FA" target="_blank">⭐️ Star the Project</a>
 </p>
 
+<p align="center">
+  <img src="screenshot.png" alt="Paste2FA Screenshot" width="600">
+</p>
+
 ---
 
 ## ✨ Features

@@ -18,7 +18,7 @@
 </p>
 
 <p align="center">
-  <img src="screenshot.png" alt="Paste2FA Screenshot" width="600">
+  <img src="screenshot.png" alt="Paste2FA Screenshot" width="300">
 </p>
 
 ---

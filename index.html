@@ -155,6 +155,12 @@ function base32Decode(str) {
   return new Uint8Array(bytes);
 }
 
+function isValidBase32(str) {
+  const clean = str.replace(/\s/g, '').replace(/=+$/, '').toUpperCase();
+  if (clean.length === 0) return false;
+  return /^[A-Z2-7]+$/.test(clean);
+}
+
 // Generate TOTP (RFC 6238)
 async function generateTOTP(secret) {
   const keyBytes = base32Decode(secret);
@@ -213,6 +219,10 @@ submitBtn.addEventListener('click', async () => {
   const s = secretInput.value.trim();
   if (!s) {
     showToast('Please enter a secret key');
+    return;
+  }
+  if (!isValidBase32(s)) {
+    showToast('Invalid Base32 secret key');
     return;
   }
   secret = s;
